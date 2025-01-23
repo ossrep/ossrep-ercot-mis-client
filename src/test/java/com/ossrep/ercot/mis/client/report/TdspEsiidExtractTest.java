@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TdspEsiidExtractTest {
@@ -18,6 +19,7 @@ public class TdspEsiidExtractTest {
     public void fetchForCenterpointYesterday() throws IOException, InterruptedException {
         List<TdspEsiid> tdspEsiids = tdspEsiidExtract.fetchByTdspAndDate(Tdsp.CENTERPOINT, LocalDate.now().minusDays(1));
         assertNotNull(tdspEsiids);
+        assertFalse(tdspEsiids.isEmpty());
     }
 
 }

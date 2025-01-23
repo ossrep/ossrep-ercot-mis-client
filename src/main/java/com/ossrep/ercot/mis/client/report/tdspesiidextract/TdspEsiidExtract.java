@@ -3,19 +3,22 @@ package com.ossrep.ercot.mis.client.report.tdspesiidextract;
 import com.ossrep.ercot.mis.client.Document;
 import com.ossrep.ercot.mis.client.DocumentList;
 import com.ossrep.ercot.mis.client.ErcotMisClient;
-import com.ossrep.ercot.mis.client.ErcotMisClientException;
 import com.ossrep.ercot.mis.client.report.Tdsp;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Optional;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+import java.util.zip.ZipFile;
 
 public class TdspEsiidExtract {
 
@@ -24,29 +27,35 @@ public class TdspEsiidExtract {
 
     public List<TdspEsiid> fetchByTdspAndDate(Tdsp tdsp, LocalDate localDate) throws IOException, InterruptedException {
         DocumentList documentList = ercotMisClient.fetchDocumentList(reportTypeId);
-        Document document = filterByTdspAndLocalDate(documentList, tdsp, localDate).orElseThrow(() -> new RuntimeException("No Tdsp and LocalDate found"));
+        Document document = filterByTdspAndLocalDate(documentList, tdsp, localDate)
+                .orElseThrow(() -> new RuntimeException(String.format("No Document found for Tdsp[%s] and LocalDate[%s]", tdsp.name(), localDate)));
         Path path = ercotMisClient.fetchDocument(document);
-        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(path.toFile()))) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                if (entry.getName().toLowerCase().endsWith(".csv")) {
-                    return parseCsv(zis);
+        List<TdspEsiid> records = new ArrayList<>();
+        try (ZipFile zipFile = new ZipFile(path.toFile())) {
+            Enumeration<? extends ZipEntry> entries = zipFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                if (!entry.isDirectory()) {
+                    try (InputStream inputStream = zipFile.getInputStream(entry)) {
+                        records.addAll(parseCsv(inputStream));
+                    }
                 }
-                zis.closeEntry();
             }
         }
-        throw new ErcotMisClientException("No entries found");
+        Files.deleteIfExists(path);
+        return records;
     }
 
     private Optional<Document> filterByTdspAndLocalDate(DocumentList documentList, Tdsp tdsp, LocalDate localDate) {
-        List<Document> list = documentList.documents().stream().filter(document -> {
-            return document.friendlyName().contains(tdsp.name()) && document.publishDate().toLocalDate().isEqual(localDate);
-        }).toList();
+        List<Document> list = documentList.documents().stream()
+                .filter(document -> document.friendlyName().contains(tdsp.name()) &&
+                        document.publishDate().toLocalDate().isEqual(localDate))
+                .toList();
         if (list.isEmpty()) {
             return Optional.empty();
         }
         if (list.size() > 1) {
-            throw new RuntimeException("Found more than one for Tdsp and LocalDate");
+            throw new RuntimeException(String.format("Found more than one Document for Tdsp[%s] and LocalDate[%s]", tdsp.name(), localDate));
         }
         return Optional.of(list.getFirst());
     }

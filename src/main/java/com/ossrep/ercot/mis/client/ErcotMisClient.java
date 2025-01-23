@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -47,7 +46,7 @@ public class ErcotMisClient {
                     .uri(URI.create("https://www.ercot.com/misdownload/servlets/mirDownload?doclookupId=" + document.docID()))
                     .GET()
                     .build();
-            Path tempFilePath = Files.createTempFile(String.valueOf(document.docID()), "." + document.extension());
+            Path tempFilePath = Files.createTempFile("ercot" + document.docID(), "." + document.extension());
             HttpResponse<Path> response = client.send(httpRequest, HttpResponse.BodyHandlers.ofFile(tempFilePath));
             return response.body();
         }
